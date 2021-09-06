@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Predict AI</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/css/bootstrap.min.css"
+          integrity="sha384-B0vP5xmATw1+K9KRQjQERJvTumQW0nPEzvF6L/Z6nronJ3oUOFUFpCjEUQouq2+l" crossorigin="anonymous">
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"
+            integrity="sha384-DfXdz2htPH0lsSSs5nCTpuj/zy4C+OGpamoFVy38MVBnE+IbbVYUew+OrCXaRkfj"
+            crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/js/bootstrap.bundle.min.js"
+            integrity="sha384-Piv4xVNRyMGpqkS2by6br4gNJ7DXjqk09RmUpJ8jgGtD7zP9yug3goQfGII0yAns"
+            crossorigin="anonymous"></script>
+    <script type="text/css" src="style.css"></script>
+    <script type=text/javascript src="{{url_for('static', filename='jquery.js') }}"></script>
+</head>
+
+<script>
+    var flags = [];
+    var time1 = 0, time2 = 0;
+    const keyupList = [];
+    const keydownList = [];
+    const keyNext = [];
+    const keyList = [];
+    const keyHold = [];
+    var keys = [];
+    var keyBuffer = [];
+    var keycode;
+
+    $(document).ready(function () {
+        const textSample = document.getElementById('textSample');
+
+        textSample.addEventListener('keydown', function (e)
+        {
+            d = new Date();
+            time1 = d.getTime();
+
+            keyBuffer.push(e.code);      //pressed key saved in buffor
+            keydownList.push(time1);
+
+            flags.push(true);
+        });
+
+        textSample.addEventListener('keyup', function (e) {
+            if (e.keyCode == keyBuffer[keyBuffer.length - 2] && flags[flags.length - 2] == true)  //previous key == keyup AND previus key is still pressed
+            {
+                console.log("Multiple keys  " + e.key);
+                keycode = e.keyCode;
+                upInfo(keydownList[keydownList.length - 2], keycode);
+                console.log(keydownList[keydownList.length - 2]);
+            } else {
+                keycode = e.keyCode;
+                upInfo(keydownList[keydownList.length - 1], keycode);
+            }
+        });
+
+        $('#next_btn').click(function()
+        {
+            location.reload();
+        });
+
+        $('#submit_btn').click(function()
+        {
+            // alert(document.getElementById('textSample').validity.valid);
+            if(document.getElementById('textSample').val='')
+            {
+                alert('Type something into field');
+            }
+            else
+            {
+                getData()
+
+                keys = JSON.stringify({
+                    'keys': keys
+                });
+
+                $.ajax({
+                    type: "POST",
+                    contentType: "application/json;charset=utf-8",
+                    url: "/predict_api",
+                    traditional: "true",
+                    data: keys,
+                    dataType: "json",
+                    error: function (request, error) {
+                        console.log(arguments);
+                        alert("Error :C " + error );
+                    }
+                }).done(function (response)
+                {
+                    //GET label from flask controller
+                    var label = response;
+                    console.log((label));
+                    $('#keyList').val(label);
+                })
+            }
+        });
+    });
+
+    function upInfo(time1, keycode) //after up
+    {
+        var d2 = new Date();
+
+        //Time to next
+        if (keyupList.length > 0) {
+            timePrev = keyupList[keyupList.length - 1];
+            timeNext = Math.abs(timePrev - time1);   //.toPrecision(3);
+            keyNext.push(timeNext).toPrecision(3);
+        }
+
+        time2 = d2.getTime();    //sek2 + msek2 / 1000;
+        keyupList.push(time2);  //key up time
+
+        var timeHold = Math.abs(time2 - time1).toPrecision(3);
+
+        keyHold.push(timeHold).toPrecision(3);
+        keyList.push(keycode);
+
+        flags[flags.length - 1] = false;
+        console.log("Key : " + keycode);
+        console.log("TimeHold: " + timeHold);
+    }
+    function getData()
+    {
+        for (var i = 0; i < keyList.length; i++)
+        {
+            if (keyNext[i] == null) {
+                keyNext[i] = 0;
+            }
+
+            keys.push({pressedKey: keyList[i], timeHold: keyHold[i], timeToNext: keyNext[i]});
+            console.log(keys[i]);
+        }
+    }
+</script>
+
+<body>
+<div class="container-sm" style="margin-block: 30px">
+
+        <div class="form-group">
+            <label for="textSample">Text Sample</label>
+            <textarea class="form-control" name="textSample" type="text" id="textSample" rows="10"></textarea>
+        </div>
+
+        <button type="submit" id="submit_btn" name="submit_btn" class="btn btn-dark btn-lg btn-block">OK</button>
+        <button type="submit" id="next_btn" name="next_btn" class="btn btn-info btn-lg btn-block">NEXT</button>
+
+</div>
+
+    <div class="container-sm" style="margin-block: 30px">
+        <output class="form-control" type="text" id="keyList" name="keyList" readonly rows="1"> </output>  <!--  <label> {label} </label> -->
+    </div>
+
+    <div class="container-sm" style="margin-block: 30px">
+        <h4>Text</h4>
+        <h5><label>The worst thing about being at the top of the career ladder is that there's a long way to fall.</label></h5>
+    </div>
+
+</body>
+</html>
